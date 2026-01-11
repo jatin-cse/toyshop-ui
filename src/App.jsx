@@ -6,7 +6,7 @@ function App() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/toys")
+    fetch("http://localhost:8080/api/v1/toys")
       .then((res) => res.json())
       .then((data) => setToys(data))
       .catch(() => setError("Backend not connected"));
