@@ -21,6 +21,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  //Stores the toy user wants to delete 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+
   // ================= FETCH =================
   const fetchToys = async () => {
     try {
@@ -217,6 +221,37 @@ function App() {
           </button>
         </div>
       )}
+{confirmDelete && (
+  <div
+    style={{
+      background: "#2a2a2a",
+      padding: "15px",
+      borderRadius: "8px",
+      marginBottom: "20px",
+      border: "1px solid #444",
+    }}
+  >
+    <p>
+      Are you sure you want to delete{" "}
+      <strong>{confirmDelete.name}</strong>?
+    </p>
+
+    <button
+      onClick={async () => {
+        await deleteToy(confirmDelete.id);
+        setConfirmDelete(null);
+      }}
+      style={{ marginRight: "10px" }}
+    >
+      Yes
+    </button>
+
+    <button onClick={() => setConfirmDelete(null)}>
+      Cancel
+    </button>
+  </div>
+)}
+
 
       {/* ================= TOY LIST ================= */}
       <h3>Available Toys</h3>
@@ -234,7 +269,7 @@ function App() {
               {toy.name} – ₹{toy.price} ({toy.category})
               <span>
                 <button onClick={() => startEdit(toy)}>Edit</button>
-                <button onClick={() => deleteToy(toy.id)}>
+                <button onClick={() => setConfirmDelete(toy)}>
                   Delete
                 </button>
               </span>
