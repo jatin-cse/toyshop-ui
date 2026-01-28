@@ -33,7 +33,7 @@ function App() {
       const res = await fetch(API_URL);
       const data = await res.json();
       setToys(data);
-    } catch (e) {
+    } catch {
       console.error("Backend not connected");
     } finally {
       setLoading(false);
@@ -56,6 +56,11 @@ function App() {
 
     return matchesSearch && matchesCategory;
   });
+
+  const categories = [
+    "all",
+    ...Array.from(new Set(toys.map((t) => t.category))),
+  ];
 
   // ================= CREATE =================
   const validateToy = () => {
@@ -94,7 +99,8 @@ function App() {
     if (!editingToy.name.trim()) e.name = "Name is required";
     if (!editingToy.price || Number(editingToy.price) <= 0)
       e.price = "Price must be greater than 0";
-    if (!editingToy.category.trim()) e.category = "Category is required";
+    if (!editingToy.category.trim())
+      e.category = "Category is required";
     setEditErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -106,7 +112,11 @@ function App() {
     await fetch(`${API_URL}/${editingToy.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingToy),
+      body: JSON.stringify({
+        name: editingToy.name,
+        price: Number(editingToy.price),
+        category: editingToy.category,
+      }),
     });
 
     setEditingToy(null);
@@ -120,14 +130,6 @@ function App() {
     await fetch(`${API_URL}/${id}`, { method: "DELETE" });
     fetchToys();
   };
-
-  const categories = [
-  "all",
-  ...Array.from(
-    new Set(toys.map((toy) => toy.category))
-  ),
-];
-
 
   // ================= UI =================
   return (
@@ -171,10 +173,67 @@ function App() {
           <p style={styles.error}>{errors.category}</p>
         )}
 
-        <button onClick={addToy} disabled={submitting}>
+        <button onClick={addToy} disabled={submitting || editingToy}>
           {submitting ? "Adding..." : "Add Toy"}
         </button>
       </div>
+
+      {/* EDIT */}
+      {editingToy && (
+        <div style={styles.card}>
+          <h3>Edit Toy</h3>
+
+          <input
+            style={styles.input}
+            value={editingToy.name}
+            onChange={(e) =>
+              setEditingToy({
+                ...editingToy,
+                name: e.target.value,
+              })
+            }
+          />
+          {editErrors.name && (
+            <p style={styles.error}>{editErrors.name}</p>
+          )}
+
+          <input
+            style={styles.input}
+            type="number"
+            value={editingToy.price}
+            onChange={(e) =>
+              setEditingToy({
+                ...editingToy,
+                price: e.target.value,
+              })
+            }
+          />
+          {editErrors.price && (
+            <p style={styles.error}>{editErrors.price}</p>
+          )}
+
+          <input
+            style={styles.input}
+            value={editingToy.category}
+            onChange={(e) =>
+              setEditingToy({
+                ...editingToy,
+                category: e.target.value,
+              })
+            }
+          />
+          {editErrors.category && (
+            <p style={styles.error}>{editErrors.category}</p>
+          )}
+
+          <button onClick={updateToy} disabled={submitting}>
+            {submitting ? "Updating..." : "Update"}
+          </button>
+          <button onClick={() => setEditingToy(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* SEARCH */}
       <div style={styles.card}>
@@ -187,18 +246,17 @@ function App() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-      <select
-  style={styles.input}
-  value={categoryFilter}
-  onChange={(e) => setCategoryFilter(e.target.value)}
->
-  {categories.map((cat) => (
-    <option key={cat} value={cat}>
-      {cat === "all" ? "All Categories" : cat}
-    </option>
-  ))}
-</select>
-
+        <select
+          style={styles.input}
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+        >
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c === "all" ? "All Categories" : c}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* DELETE CONFIRM */}
@@ -262,23 +320,22 @@ const styles = {
     color: "#fff",
   },
   card: {
-  background: "#2a2a2a",
-  padding: "16px",
-  marginBottom: "20px",
-  borderRadius: "10px",
-  border: "1px solid #3a3a3a",
-  boxSizing: "border-box",
+    background: "#2a2a2a",
+    padding: "16px",
+    marginBottom: "20px",
+    borderRadius: "10px",
+    border: "1px solid #3a3a3a",
+    boxSizing: "border-box",
   },
-
   input: {
-  width: "100%",
-  padding: "10px",
-  marginBottom: "10px",
-  background: "#1f1f1f",
-  color: "#fff",
-  border: "1px solid #444",
-  borderRadius: "6px",
-  boxSizing: "border-box",
+    width: "100%",
+    padding: "10px",
+    marginBottom: "10px",
+    background: "#1f1f1f",
+    color: "#fff",
+    border: "1px solid #444",
+    borderRadius: "6px",
+    boxSizing: "border-box",
   },
   error: {
     color: "red",
