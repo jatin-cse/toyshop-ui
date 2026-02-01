@@ -1,40 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_URL = "http://localhost:8080/api/v1/toys";
 
-function App() {
+export default function App() {
   const [toys, setToys] = useState([]);
-  const [editingToy, setEditingToy] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // CREATE form
-  const [newToy, setNewToy] = useState({
-    name: "",
-    price: "",
-    category: "",
-  });
-
-  // Validation
+  // create
+  const [newToy, setNewToy] = useState({ name: "", price: "", category: "" });
   const [errors, setErrors] = useState({});
+
+  // edit
+  const [editingToy, setEditingToy] = useState(null);
   const [editErrors, setEditErrors] = useState({});
 
-  // UI
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  // delete confirm
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Search & filter
+  // search & filter
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // ================= FETCH =================
+  // ---------------- FETCH ----------------
   const fetchToys = async () => {
     try {
       setLoading(true);
       const res = await fetch(API_URL);
       const data = await res.json();
       setToys(data);
-    } catch {
-      console.error("Backend not connected");
     } finally {
       setLoading(false);
     }
@@ -44,311 +37,241 @@ function App() {
     fetchToys();
   }, []);
 
-  // ================= FILTER =================
-  const filteredToys = toys.filter((toy) => {
-    const matchesSearch = toy.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-    const matchesCategory =
-      categoryFilter === "all" ||
-      toy.category.toLowerCase() === categoryFilter.toLowerCase();
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const categories = [
-    "all",
-    ...Array.from(new Set(toys.map((t) => t.category))),
-  ];
-
-  // ================= CREATE =================
-  const validateToy = () => {
+  // ---------------- VALIDATION ----------------
+  const validate = (toy, setErr) => {
     const e = {};
-    if (!newToy.name.trim()) e.name = "Name is required";
-    if (!newToy.price || Number(newToy.price) <= 0)
-      e.price = "Price must be greater than 0";
-    if (!newToy.category.trim()) e.category = "Category is required";
-    setErrors(e);
+    if (!toy.name.trim()) e.name = "Name required";
+    if (!toy.price || Number(toy.price) <= 0) e.price = "Price > 0";
+    if (!toy.category.trim()) e.category = "Category required";
+    setErr(e);
     return Object.keys(e).length === 0;
   };
 
+  // ---------------- CREATE ----------------
   const addToy = async () => {
-    if (!validateToy()) return;
-    setSubmitting(true);
+    if (!validate(newToy, setErrors)) return;
 
     await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newToy.name,
-        price: Number(newToy.price),
-        category: newToy.category,
-      }),
+      body: JSON.stringify({ ...newToy, price: Number(newToy.price) }),
     });
 
     setNewToy({ name: "", price: "", category: "" });
     setErrors({});
-    setSubmitting(false);
     fetchToys();
   };
 
-  // ================= EDIT =================
-  const validateEditToy = () => {
-    const e = {};
-    if (!editingToy.name.trim()) e.name = "Name is required";
-    if (!editingToy.price || Number(editingToy.price) <= 0)
-      e.price = "Price must be greater than 0";
-    if (!editingToy.category.trim())
-      e.category = "Category is required";
-    setEditErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
+  // ---------------- UPDATE ----------------
   const updateToy = async () => {
-    if (!validateEditToy()) return;
-    setSubmitting(true);
+    if (!validate(editingToy, setEditErrors)) return;
 
     await fetch(`${API_URL}/${editingToy.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editingToy.name,
-        price: Number(editingToy.price),
-        category: editingToy.category,
-      }),
+      body: JSON.stringify(editingToy),
     });
 
     setEditingToy(null);
     setEditErrors({});
-    setSubmitting(false);
     fetchToys();
   };
 
-  // ================= DELETE =================
+  // ---------------- DELETE ----------------
   const deleteToy = async (id) => {
     await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    setConfirmDelete(null);
     fetchToys();
   };
+
+  // ---------------- FILTER LOGIC ----------------
+  const categories = useMemo(() => {
+    return ["all", ...new Set(toys.map(t => t.category))];
+  }, [toys]);
+
+  const filteredToys = toys.filter(t => {
+    const matchName = t.name.toLowerCase().includes(search.toLowerCase());
+    const matchCat =
+      categoryFilter === "all" ||
+      t.category.toLowerCase() === categoryFilter.toLowerCase();
+    return matchName && matchCat;
+  });
 
   // ================= UI =================
   return (
-    <div style={styles.container}>
-      <h2>🧸 Toy Shop</h2>
+    <div className="min-h-screen bg-[#0d0d14] text-gray-100 px-4 py-8">
+     <div className="max-w-screen-xl mx-auto space-y-8">
 
-      {/* CREATE */}
-      <div style={styles.card}>
-        <h3>Add New Toy</h3>
+        {/* HEADER */}
+        <h1 className="text-4xl font-bold flex items-center gap-3">
+          🧸 Toy Shop
+        </h1>
 
-        <input
-          style={styles.input}
-          placeholder="Name"
-          value={newToy.name}
-          onChange={(e) =>
-            setNewToy({ ...newToy, name: e.target.value })
-          }
-        />
-        {errors.name && <p style={styles.error}>{errors.name}</p>}
+        {/* ADD */}
+        <div className="bg-[#16162a] p-6 rounded-2xl space-y-4">
+          <h2 className="text-xl font-semibold">Add New Toy</h2>
 
-        <input
-          style={styles.input}
-          type="number"
-          placeholder="Price"
-          value={newToy.price}
-          onChange={(e) =>
-            setNewToy({ ...newToy, price: e.target.value })
-          }
-        />
-        {errors.price && <p style={styles.error}>{errors.price}</p>}
+          <input
+            className="w-full p-3 rounded-xl bg-[#1e1e38]"
+            placeholder="Name"
+            value={newToy.name}
+            onChange={e => setNewToy({ ...newToy, name: e.target.value })}
+          />
+          {errors.name && <p className="text-red-400 text-sm">{errors.name}</p>}
 
-        <input
-          style={styles.input}
-          placeholder="Category"
-          value={newToy.category}
-          onChange={(e) =>
-            setNewToy({ ...newToy, category: e.target.value })
-          }
-        />
-        {errors.category && (
-          <p style={styles.error}>{errors.category}</p>
+          <input
+            type="number"
+            className="w-full p-3 rounded-xl bg-[#1e1e38]"
+            placeholder="Price"
+            value={newToy.price}
+            onChange={e => setNewToy({ ...newToy, price: e.target.value })}
+          />
+          {errors.price && <p className="text-red-400 text-sm">{errors.price}</p>}
+
+          <input
+            className="w-full p-3 rounded-xl bg-[#1e1e38]"
+            placeholder="Category"
+            value={newToy.category}
+            onChange={e => setNewToy({ ...newToy, category: e.target.value })}
+          />
+          {errors.category && <p className="text-red-400 text-sm">{errors.category}</p>}
+
+          <button
+            onClick={addToy}
+            className="px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500"
+          >
+            Add Toy
+          </button>
+        </div>
+
+        {/* SEARCH & FILTER */}
+        <div className="bg-[#16162a] p-6 rounded-2xl space-y-4">
+          <h2 className="text-xl font-semibold">Search & Filter</h2>
+
+          <input
+            className="w-full p-3 rounded-xl bg-[#1e1e38]"
+            placeholder="Search by name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+
+          <select
+            className="w-full p-3 rounded-xl bg-[#1e1e38]"
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          >
+            {categories.map(c => (
+              <option key={c} value={c}>
+                {c === "all" ? "All Categories" : c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* LIST */}
+        <div className="bg-[#16162a] p-6 rounded-2xl space-y-4">
+          <h2 className="text-xl font-semibold">Available Toys</h2>
+
+          {loading && <p className="opacity-60">Loading…</p>}
+          {!loading && filteredToys.length === 0 && (
+            <p className="opacity-60">No toys found</p>
+          )}
+
+          {filteredToys.map(toy => (
+            <div
+              key={toy.id}
+              className="flex justify-between items-center bg-[#1e1e38] p-4 rounded-xl"
+            >
+              <span>
+                {toy.name} – ₹{toy.price} ({toy.category})
+              </span>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditingToy({ ...toy })}
+                  className="px-4 py-2 bg-cyan-500/20 rounded-lg"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(toy)}
+                  className="px-4 py-2 bg-red-500/20 rounded-lg"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* EDIT MODAL */}
+        {editingToy && (
+          <div className="bg-[#16162a] p-6 rounded-2xl space-y-3">
+            <h2 className="text-xl font-semibold">Edit Toy</h2>
+
+            <input
+              className="w-full p-3 rounded-xl bg-[#1e1e38]"
+              value={editingToy.name}
+              onChange={e => setEditingToy({ ...editingToy, name: e.target.value })}
+            />
+            {editErrors.name && <p className="text-red-400 text-sm">{editErrors.name}</p>}
+
+            <input
+              type="number"
+              className="w-full p-3 rounded-xl bg-[#1e1e38]"
+              value={editingToy.price}
+              onChange={e => setEditingToy({ ...editingToy, price: e.target.value })}
+            />
+            {editErrors.price && <p className="text-red-400 text-sm">{editErrors.price}</p>}
+
+            <input
+              className="w-full p-3 rounded-xl bg-[#1e1e38]"
+              value={editingToy.category}
+              onChange={e => setEditingToy({ ...editingToy, category: e.target.value })}
+            />
+            {editErrors.category && <p className="text-red-400 text-sm">{editErrors.category}</p>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={updateToy}
+                className="px-6 py-3 bg-emerald-600 rounded-xl"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setEditingToy(null)}
+                className="px-6 py-3 bg-gray-600 rounded-xl"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
-        <button onClick={addToy} disabled={submitting || editingToy}>
-          {submitting ? "Adding..." : "Add Toy"}
-        </button>
-      </div>
-
-      {/* EDIT */}
-      {editingToy && (
-        <div style={styles.card}>
-          <h3>Edit Toy</h3>
-
-          <input
-            style={styles.input}
-            value={editingToy.name}
-            onChange={(e) =>
-              setEditingToy({
-                ...editingToy,
-                name: e.target.value,
-              })
-            }
-          />
-          {editErrors.name && (
-            <p style={styles.error}>{editErrors.name}</p>
-          )}
-
-          <input
-            style={styles.input}
-            type="number"
-            value={editingToy.price}
-            onChange={(e) =>
-              setEditingToy({
-                ...editingToy,
-                price: e.target.value,
-              })
-            }
-          />
-          {editErrors.price && (
-            <p style={styles.error}>{editErrors.price}</p>
-          )}
-
-          <input
-            style={styles.input}
-            value={editingToy.category}
-            onChange={(e) =>
-              setEditingToy({
-                ...editingToy,
-                category: e.target.value,
-              })
-            }
-          />
-          {editErrors.category && (
-            <p style={styles.error}>{editErrors.category}</p>
-          )}
-
-          <button onClick={updateToy} disabled={submitting}>
-            {submitting ? "Updating..." : "Update"}
-          </button>
-          <button onClick={() => setEditingToy(null)}>
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* SEARCH */}
-      <div style={styles.card}>
-        <h3>Search & Filter</h3>
-
-        <input
-          style={styles.input}
-          placeholder="Search by name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <select
-          style={styles.input}
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c === "all" ? "All Categories" : c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* DELETE CONFIRM */}
-      {confirmDelete && (
-        <div style={styles.card}>
-          <p>
-            Delete <b>{confirmDelete.name}</b>?
-          </p>
-          <button
-            onClick={async () => {
-              await deleteToy(confirmDelete.id);
-              setConfirmDelete(null);
-            }}
-          >
-            Yes
-          </button>
-          <button onClick={() => setConfirmDelete(null)}>
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* LIST */}
-      <h3>Available Toys</h3>
-
-      {loading && <p>Loading toys...</p>}
-
-      {!loading && filteredToys.length === 0 && (
-        <p style={{ opacity: 0.6 }}>
-          No toys match your search
-        </p>
-      )}
-
-      {!loading &&
-        filteredToys.map((toy) => (
-          <div key={toy.id} style={styles.item}>
-            <span>
-              {toy.name} – ₹{toy.price} ({toy.category})
-            </span>
-            <span>
-              <button onClick={() => setEditingToy(toy)}>
-                Edit
+        {/* DELETE CONFIRM */}
+        {confirmDelete && (
+          <div className="bg-[#16162a] p-6 rounded-2xl space-y-4">
+            <p>
+              Delete <b>{confirmDelete.name}</b>?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => deleteToy(confirmDelete.id)}
+                className="px-6 py-3 bg-red-600 rounded-xl"
+              >
+                Yes
               </button>
-              <button onClick={() => setConfirmDelete(toy)}>
-                Delete
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="px-6 py-3 bg-gray-600 rounded-xl"
+              >
+                Cancel
               </button>
-            </span>
+            </div>
           </div>
-        ))}
+        )}
+
+      </div>
     </div>
   );
 }
-
-// ================= STYLES =================
-const styles = {
-  container: {
-    padding: "20px",
-    maxWidth: "600px",
-    margin: "auto",
-    fontFamily: "Arial",
-    color: "#fff",
-  },
-  card: {
-    background: "#2a2a2a",
-    padding: "16px",
-    marginBottom: "20px",
-    borderRadius: "10px",
-    border: "1px solid #3a3a3a",
-    boxSizing: "border-box",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    marginBottom: "10px",
-    background: "#1f1f1f",
-    color: "#fff",
-    border: "1px solid #444",
-    borderRadius: "6px",
-    boxSizing: "border-box",
-  },
-  error: {
-    color: "red",
-    fontSize: "14px",
-  },
-  item: {
-    display: "flex",
-    justifyContent: "space-between",
-    background: "#2a2a2a",
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "10px",
-  },
-};
-
-export default App;
